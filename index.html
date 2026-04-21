@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BioAudit — Clinical Intelligence Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          boxShadow: {
+            'soft': '0 8px 30px rgb(0,0,0,0.04)',
+            'card': '0 4px 20px rgb(0,0,0,0.05)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .drop-zone-active { border-color: #6366f1 !important; background-color: #eef2ff !important; }
+    .card-selected { border-color: #6366f1 !important; background-color: #f0f0ff !important; }
+    .dose-input { transition: all 0.3s ease; max-height: 0; overflow: hidden; opacity: 0; }
+    .dose-input.visible { max-height: 80px; opacity: 1; }
+    .spinner { border: 2px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; width: 18px; height: 18px; animation: spin 0.8s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .card-hover { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .card-hover:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgb(0,0,0,0.07); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+        localStorage.clear();
+        sessionStorage.clear();
+    });
+  </script>
+
+  <header class="bg-white border-b border-slate-100 px-6 py-4 shadow-soft sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-dna text-white text-xs"></i>
+        </div>
+        <span class="font-semibold text-slate-900 tracking-tight text-lg">BioAudit</span>
+        <span class="text-xs text-slate-400 font-medium ml-1 bg-slate-100 px-2 py-0.5 rounded-full">Clinical Engine v2.1</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-400">
+        <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+        <span>256-bit encrypted · HIPAA-aware</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-6xl mx-auto w-full px-6 py-14">
+
+    <div class="text-center mb-14">
+      <div class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 text-xs font-semibold px-4 py-1.5 rounded-full mb-6 border border-indigo-100">
+        <i class="fa-solid fa-flask-vial text-indigo-400"></i>
+        Pharmacokinetic Titration Engine
+      </div>
+      <h1 class="text-4xl md:text-5xl font-bold text-slate-900 leading-tight mb-4">
+        Your blood markers.<br/>
+        <span class="text-indigo-600">Optimized to the decimal.</span>
+      </h1>
+      <p class="text-slate-500 text-lg max-w-xl mx-auto leading-relaxed">
+        Upload a pathology report, select your supplement stack, and receive a clinically-mapped protocol with precise dosage modifications.
+      </p>
+    </div>
+
+    <form id="auditForm" enctype="multipart/form-data">
+
+      <div class="mb-10">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center text-sm font-bold">1</div>
+          <h2 class="text-base font-semibold text-slate-800">Upload Pathology Report</h2>
+        </div>
+
+        <div id="dropZone"
+             class="relative border-2 border-dashed border-slate-200 rounded-[2rem] bg-white p-12 text-center cursor-pointer transition-all duration-200 shadow-soft hover:border-indigo-300 hover:bg-slate-50">
+          <input type="file" id="reportFile" name="report" accept=".pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+          <div id="dropDefault">
+            <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <i class="fa-regular fa-file-pdf text-indigo-500 text-2xl"></i>
+            </div>
+            <p class="text-slate-700 font-medium mb-1">Drop your PDF here or <span class="text-indigo-600 underline underline-offset-2">browse files</span></p>
+            <p class="text-slate-400 text-sm">Supports standard pathology & blood panel reports · Max 10MB</p>
+          </div>
+          <div id="dropSelected" class="hidden">
+            <div class="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <i class="fa-solid fa-circle-check text-green-500 text-2xl"></i>
+            </div>
+            <p class="text-slate-800 font-semibold" id="fileName">report.pdf</p>
+            <p class="text-slate-400 text-sm mt-1">Ready for analysis · <span class="text-indigo-500 cursor-pointer" onclick="resetFile()">Change file</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-10">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-7 h-7 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center text-sm font-bold">2</div>
+          <h2 class="text-base font-semibold text-slate-800">Current Supplement Stack</h2>
+          <span class="text-xs text-slate-400 ml-auto">Select all that apply · Enter daily dose</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start" id="supplementGrid">
+          </div>
+      </div>
+
+      <div class="flex flex-col items-center gap-4 mt-12">
+        <button type="submit" id="submitBtn"
+          class="group flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-10 py-4 rounded-2xl transition-all duration-200 shadow-[0_4px_20px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_28px_rgba(99,102,241,0.45)]">
+          <div class="spinner" id="spinner"></div>
+          <i class="fa-solid fa-microscope text-indigo-300 group-hover:text-indigo-200" id="submitIcon"></i>
+          <span id="submitText">Run Clinical Audit</span>
+          <i class="fa-solid fa-arrow-right text-indigo-300 group-hover:translate-x-0.5 transition-transform" id="arrowIcon"></i>
+        </button>
+        <p class="text-xs text-slate-400">Analysis runs entirely on your report — no data stored externally.</p>
+      </div>
+    </form>
+  </main>
+
+  <footer class="mt-auto py-12 text-center">
+    <div class="max-w-2xl mx-auto px-6">
+      <i class="fa-solid fa-triangle-exclamation text-amber-400 mb-3 text-lg"></i>
+      <p class="text-slate-400 text-xs leading-relaxed">
+        <strong class="text-slate-500">Medical Disclaimer:</strong> BioAudit is not a diagnostic tool and does not constitute medical advice. All outputs are algorithmic estimations based on published reference ranges. Consult a licensed physician before modifying any supplementation or treatment protocol.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // ─── Supplement Definitions ───
+    const SUPPLEMENTS = [
+      { name: "Creatine Monohydrate", icon: "fa-bolt", unit: "g/day", desc: "Phosphocreatine resynthesis & power output" },
+      { name: "Vitamin D3", icon: "fa-sun", unit: "IU/day", desc: "Hormone precursor & immune modulation" },
+      { name: "Omega-3 Fish Oil", icon: "fa-fish", unit: "g/day", desc: "EPA/DHA anti-inflammatory cascade" },
+      { name: "Magnesium Glycinate", icon: "fa-brain", unit: "mg/day", desc: "ATP synthesis & sleep architecture" },
+      { name: "Zinc", icon: "fa-shield", unit: "mg/day", desc: "Testosterone & immune enzyme cofactor" },
+      { name: "Cyanocobalamin", icon: "fa-capsules", unit: "mcg/day", desc: "Methylation & myelin sheath integrity" },
+      { name: "L-Citrulline", icon: "fa-heart-pulse", unit: "g/day", desc: "Nitric oxide precursor & vasodilation" },
+      { name: "Whey Protein Isolate", icon: "fa-dumbbell", unit: "g/day", desc: "Leucine-rich MPS trigger" },
+      { name: "Iron Bisglycinate", icon: "fa-droplet", unit: "mg/day", desc: "Hemoglobin synthesis & VO₂max support" },
+      { name: "Pre-Workout", icon: "fa-fire", unit: "serving/day", desc: "CNS stimulant blend & performance primer" },
+      { name: "Beta-Alanine", icon: "fa-chart-line", unit: "g/day", desc: "Carnosine buffering & lactic acid delay" },
+      { name: "L-Glutamine", icon: "fa-leaf", unit: "g/day", desc: "Gut mucosal repair & nitrogen retention" },
+    ];
+
+    const grid = document.getElementById('supplementGrid');
+
+    SUPPLEMENTS.forEach(supp => {
+      const id = `supp_${supp.name.replace(/\s+/g, '_')}`;
+      const doseKey = `dose_${supp.name.replace(/\s+/g, '_')}`;
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-[1.5rem] border border-slate-100 shadow-card p-5 cursor-pointer card-hover transition-all duration-200';
+      card.id = `card_${id}`;
+      card.innerHTML = `
+        <label class="flex items-start gap-4 cursor-pointer" onclick="event.preventDefault(); toggleCard('${id}', '${supp.name}')">
+          <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="fa-solid ${supp.icon} text-slate-400 text-sm"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <p class="font-semibold text-slate-800 text-sm">${supp.name}</p>
+              <div class="w-5 h-5 rounded-md border-2 border-slate-200 flex items-center justify-center flex-shrink-0" id="check_${id}">
+              </div>
+            </div>
+            <p class="text-slate-400 text-xs mt-0.5 leading-relaxed">${supp.desc}</p>
+          </div>
+        </label>
+        <div class="dose-input" id="dose_area_${id}">
+          <input type="hidden" name="supplements" value="${supp.name}" id="hidden_${id}" disabled/>
+          <div class="mt-3 flex items-center gap-2 pl-14">
+            <input type="number" name="${doseKey}" id="input_${id}" step="0.1" min="0"
+              placeholder="Daily dose"
+              class="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 placeholder-slate-300"
+            />
+            <span class="text-slate-400 text-xs font-medium whitespace-nowrap">${supp.unit}</span>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    function toggleCard(id, suppName) {
+      const card = document.getElementById(`card_${id}`);
+      const check = document.getElementById(`check_${id}`);
+      const doseArea = document.getElementById(`dose_area_${id}`);
+      const hiddenInput = document.getElementById(`hidden_${id}`);
+      const isSelected = card.classList.contains('card-selected');
+
+      if (isSelected) {
+        card.classList.remove('card-selected', 'border-indigo-300');
+        card.classList.add('border-slate-100');
+        check.innerHTML = '';
+        check.classList.remove('bg-indigo-600', 'border-indigo-600');
+        check.classList.add('border-slate-200');
+        doseArea.classList.remove('visible');
+        hiddenInput.disabled = true;
+      } else {
+        card.classList.add('card-selected', 'border-indigo-300');
+        card.classList.remove('border-slate-100');
+        check.innerHTML = '<i class="fa-solid fa-check text-white text-[10px]"></i>';
+        check.classList.add('bg-indigo-600', 'border-indigo-600');
+        check.classList.remove('border-slate-200');
+        doseArea.classList.add('visible');
+        hiddenInput.disabled = false;
+      }
+    }
+
+    // ─── File Drop Zone ───
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('reportFile');
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) showFileSelected(fileInput.files[0].name);
+    });
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drop-zone-active'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone-active'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drop-zone-active');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        showFileSelected(file.name);
+      }
+    });
+
+    function showFileSelected(name) {
+      document.getElementById('dropDefault').classList.add('hidden');
+      document.getElementById('dropSelected').classList.remove('hidden');
+      document.getElementById('fileName').textContent = name;
+    }
+
+    function resetFile() {
+      fileInput.value = '';
+      document.getElementById('dropDefault').classList.remove('hidden');
+      document.getElementById('dropSelected').classList.add('hidden');
+    }
+
+    // ─── Form Submission ───
+    document.getElementById('auditForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // STRICT CLIENT-SIDE VALIDATION: Block submission if no file
+      if (fileInput.files.length === 0) {
+        alert("ACTION BLOCKED: Please upload a pathology PDF before executing the analysis.");
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      const spinner = document.getElementById('spinner');
+      const submitText = document.getElementById('submitText');
+      const submitIcon = document.getElementById('submitIcon');
+      const arrowIcon = document.getElementById('arrowIcon');
+
+      btn.disabled = true;
+      btn.classList.add('opacity-80');
+      spinner.style.display = 'block';
+      submitIcon.classList.add('hidden');
+      arrowIcon.classList.add('hidden');
+      submitText.textContent = 'Analyzing markers…';
+
+      try {
+        const formData = new FormData(e.target);
+        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          localStorage.setItem('bioaudit_results', JSON.stringify(data));
+          window.location.href = '/results'; // Ensure this matches your Flask route
+        } else {
+          alert('Analysis failed: ' + (data.message || 'Unknown error'));
+          resetSubmitBtn();
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+        resetSubmitBtn();
+      }
+    });
+
+    function resetSubmitBtn() {
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = false;
+      btn.classList.remove('opacity-80');
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('submitIcon').classList.remove('hidden');
+      document.getElementById('arrowIcon').classList.remove('hidden');
+      document.getElementById('submitText').textContent = 'Run Clinical Audit';
+    }
+  </script>
+</body>
+</html>

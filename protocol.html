@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BioAudit — Action Protocol</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          boxShadow: { 'soft': '0 8px 30px rgb(0,0,0,0.04)', 'card': '0 4px 20px rgb(0,0,0,0.05)' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    .row-hover { transition: background 0.15s ease; }
+    .print-btn:active { transform: scale(0.97); }
+
+    /* --- PDF / PRINT OPTIMIZATION --- */
+    @media print {
+      @page { margin: 0.75in; size: portrait; }
+      body { background-color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      
+      /* Hide web-only elements */
+      header, footer, .print-btn, #noDataMessage { display: none !important; }
+      
+      /* Reset layout constraints for paper */
+      main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+      
+      /* Remove shadows for cleaner print */
+      .shadow-card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+      
+      /* Prevent awkward page breaks slicing elements in half */
+      .row-hover, #section-eliminate, #section-dosages, #section-referrals { page-break-inside: avoid !important; }
+      
+      /* Invert dark badges to save ink and improve readability */
+      .bg-\[\#09090B\] { background-color: transparent !important; color: #000000 !important; border: 2px solid #000000 !important; }
+      .text-white { color: #000000 !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-slate-100 px-6 py-4 shadow-soft sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
+            <i class="fa-solid fa-dna text-white text-xs"></i>
+          </div>
+          <span class="font-semibold text-slate-900 tracking-tight text-lg">BioAudit</span>
+        </a>
+        <span class="text-slate-300 mx-1">/</span>
+        <span class="text-sm text-slate-500 font-medium">Action Protocol</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="results.html" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1.5 transition-colors">
+          <i class="fa-solid fa-arrow-left text-xs"></i>
+          Clinical Analysis
+        </a>
+        <button onclick="window.print()" class="print-btn flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+          <i class="fa-solid fa-print text-slate-500"></i>
+          Print Protocol
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-4xl mx-auto w-full px-6 py-10">
+
+    <div id="noDataMessage" class="hidden text-center py-24">
+      <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+        <i class="fa-solid fa-circle-exclamation text-slate-400 text-2xl"></i>
+      </div>
+      <h2 class="text-xl font-semibold text-slate-700 mb-2">No protocol data found</h2>
+      <p class="text-slate-400 mb-8">Please complete the intake form to generate your action protocol.</p>
+      <a href="index.html" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors">
+        Return to Intake
+      </a>
+    </div>
+
+    <div id="protocolContent" class="hidden fade-in">
+
+      <div class="mb-10">
+        <div class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 text-xs font-semibold px-3 py-1 rounded-full mb-4 border border-indigo-100">
+          <i class="fa-solid fa-list-check text-indigo-400"></i>
+          Execution Checklist
+        </div>
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">Your Action Protocol</h1>
+        <p class="text-slate-500">Exact targets only — no jargon, no ranges. Execute and retest in 8 weeks.</p>
+      </div>
+
+      <div id="section-eliminate" class="hidden mb-8">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">Eliminate Immediately</h2>
+          <div class="flex-1 h-px bg-rose-100"></div>
+        </div>
+        <div class="bg-white rounded-[1.5rem] border border-rose-100 shadow-card overflow-hidden">
+          <div id="eliminateRows"></div>
+        </div>
+      </div>
+
+      <div id="section-dosages" class="hidden mb-8">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
+          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">Optimized Dosages</h2>
+          <div class="flex-1 h-px bg-indigo-100"></div>
+        </div>
+        <div class="bg-white rounded-[1.5rem] border border-indigo-100 shadow-card overflow-hidden">
+          <div id="dosageRows"></div>
+        </div>
+      </div>
+
+      <div id="section-referrals" class="hidden mb-8">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-widest">Physician Referrals</h2>
+          <div class="flex-1 h-px bg-amber-100"></div>
+        </div>
+        <div class="bg-white rounded-[1.5rem] border border-amber-100 shadow-card overflow-hidden">
+          <div id="referralRows"></div>
+        </div>
+      </div>
+
+      <div class="bg-indigo-50 border border-indigo-100 rounded-[1.5rem] p-6 flex items-start gap-4">
+        <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-rotate text-indigo-600"></i>
+        </div>
+        <div>
+          <p class="font-semibold text-indigo-900 mb-1">Retest Protocol: 8 Weeks</p>
+          <p class="text-sm text-indigo-700 leading-relaxed">
+            Follow the exact dosages above for a full 8-week cycle. Retest the same biomarker panel, re-upload to BioAudit, and compare delta values. Adjust protocol based on new readings. Do not increase doses without physician clearance.
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="mt-auto py-12 text-center">
+    <div class="max-w-2xl mx-auto px-6">
+      <i class="fa-solid fa-triangle-exclamation text-amber-400 mb-3 text-lg"></i>
+      <p class="text-slate-400 text-xs leading-relaxed">
+        <strong class="text-slate-500">Medical Disclaimer:</strong> BioAudit is not a diagnostic tool and does not constitute medical advice. All outputs are algorithmic estimations based on published reference ranges. Consult a licensed physician before modifying any supplementation or treatment protocol.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    function parseTargetValue(output) {
+      if (!output) return output;
+      const match = output.match(/Target Dosage:\s*([\d.]+\s*[a-zA-Z\/]+)/);
+      if (match) return match[1].trim();
+      const ceaseMatch = output.match(/^(0\s*[a-zA-Z\/]+)/);
+      if (ceaseMatch) return ceaseMatch[1].trim();
+      return output;
+    }
+
+    function makeRow(supp, value, markerLabel, bgClass, textClass, icon, isLast) {
+      return `
+        <div class="row-hover flex items-center justify-between px-6 py-4 ${!isLast ? 'border-b border-slate-50' : ''}">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 ${bgClass} rounded-lg flex items-center justify-center flex-shrink-0">
+              <i class="fa-solid ${icon} ${textClass} text-xs"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-slate-800 text-sm">${supp}</p>
+              <p class="text-xs text-slate-400">Flagged by: ${markerLabel}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="text-xl font-bold ${textClass}">${value}</p>
+            <p class="text-xs text-slate-400">daily target</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function makeReferralRow(marker, message, isLast) {
+      return `
+        <div class="flex items-start gap-4 px-6 py-4 ${!isLast ? 'border-b border-slate-50' : ''}">
+          <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="fa-solid fa-user-doctor text-amber-600 text-xs"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-amber-800 text-sm">${marker}</p>
+            <p class="text-xs text-amber-700 leading-relaxed mt-0.5">${message}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const raw = localStorage.getItem('bioaudit_results');
+      if (!raw) {
+        document.getElementById('noDataMessage').classList.remove('hidden');
+        return;
+      }
+
+      const data = JSON.parse(raw);
+      const audit = data.audit;
+      document.getElementById('protocolContent').classList.remove('hidden');
+
+      // SMART DEDUPLICATION LOGIC
+      const ACTION_PRIORITY = { ELIMINATE: 4, PHYSICIAN: 3, REDUCE: 2, INCREASE: 1 };
+      const deduped = {};
+
+      audit.supplement_directives.forEach(dir => {
+        const existing = deduped[dir.supplement];
+        if (!existing) {
+            deduped[dir.supplement] = dir;
+            return;
+        }
+
+        const incomingPrio = ACTION_PRIORITY[dir.action_type] || 0;
+        const existingPrio = ACTION_PRIORITY[existing.action_type] || 0;
+
+        if (incomingPrio > existingPrio) {
+            deduped[dir.supplement] = dir; 
+        } else if (incomingPrio === existingPrio) {
+            const inVal = parseFloat(parseTargetValue(dir.output)) || 0;
+            const curVal = parseFloat(parseTargetValue(existing.output)) || 0;
+
+            if (dir.action_type === 'REDUCE' && inVal < curVal) {
+                deduped[dir.supplement] = dir; 
+            } else if (dir.action_type === 'INCREASE' && inVal > curVal) {
+                deduped[dir.supplement] = dir; 
+            }
+        }
+      });
+
+      const eliminate = [], dosages = [], physicianSupps = [];
+
+      Object.values(deduped).forEach(dir => {
+        if (dir.action_type === 'ELIMINATE') eliminate.push(dir);
+        else if (dir.action_type === 'PHYSICIAN') physicianSupps.push(dir);
+        else dosages.push(dir);
+      });
+
+      // Render Eliminate
+      // ─── Render Eliminate ───
+      if (eliminate.length > 0) {
+        document.getElementById('section-eliminate').classList.remove('hidden');
+        const container = document.getElementById('eliminateRows');
+        eliminate.forEach((dir, i) => {
+          container.innerHTML += makeRow(
+            dir.supplement, 
+            parseTargetValue(dir.output), 
+            dir.marker,
+            'bg-rose-50', 'text-rose-600', 'fa-ban',
+            i === eliminate.length - 1
+          );
+        });
+      }
+
+      // ─── Render Dosages ───
+      if (dosages.length > 0) {
+        document.getElementById('section-dosages').classList.remove('hidden');
+        const container = document.getElementById('dosageRows');
+        dosages.forEach((dir, i) => {
+          const isIncrease = dir.action_type === 'INCREASE';
+          container.innerHTML += makeRow(
+            dir.supplement, 
+            parseTargetValue(dir.output), 
+            dir.marker,
+            isIncrease ? 'bg-indigo-50' : 'bg-amber-50',
+            isIncrease ? 'text-indigo-600' : 'text-amber-600',
+            isIncrease ? 'fa-arrow-up' : 'fa-arrow-down',
+            i === dosages.length - 1
+          );
+        });
+      }
+
+      // Render Referrals
+      const referralMessages = [];
+      physicianSupps.forEach(dir => referralMessages.push({ marker: dir.supplement, message: `${dir.output} — related to ${dir.marker} marker.` }));
+      if (audit.physician_referrals) audit.physician_referrals.forEach(r => referralMessages.push(r));
+
+      if (referralMessages.length > 0) {
+        document.getElementById('section-referrals').classList.remove('hidden');
+        const container = document.getElementById('referralRows');
+        referralMessages.forEach((r, i) => {
+          container.innerHTML += makeReferralRow(r.marker, r.message, i === referralMessages.length - 1);
+        });
+      }
+
+      // Empty State
+      if (eliminate.length === 0 && dosages.length === 0 && referralMessages.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'text-center py-16 text-slate-400';
+        empty.innerHTML = `<i class="fa-solid fa-circle-check text-green-400 text-4xl mb-4"></i><p class="font-semibold text-slate-600 text-lg mb-2">Your stack is fully optimized.</p><p class="text-sm">No modifications required.</p>`;
+        document.getElementById('protocolContent').appendChild(empty);
+      }
+    });
+  </script>
+</body>
+</html>
