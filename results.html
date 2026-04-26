@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BioAudit — Clinical Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          boxShadow: { 'soft': '0 8px 30px rgb(0,0,0,0.04)', 'card': '0 4px 20px rgb(0,0,0,0.05)' }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .tab-active { background: #6366f1; color: white; }
+    .tab-inactive { background: transparent; color: #64748b; }
+    .tab-inactive:hover { background: #f1f5f9; }
+    .panel-hidden { display: none; }
+    .status-bar {
+      height: 4px; border-radius: 2px; background: #e2e8f0;
+      position: relative; overflow: hidden;
+    }
+    .status-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-slate-100 px-6 py-4 shadow-soft sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="flex items-center gap-3 group">
+          <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
+            <i class="fa-solid fa-dna text-white text-xs"></i>
+          </div>
+          <span class="font-semibold text-slate-900 tracking-tight text-lg">BioAudit</span>
+        </a>
+        <span class="text-slate-300 mx-1">/</span>
+        <span class="text-sm text-slate-500 font-medium">Clinical Analysis</span>
+      </div>
+      <a href="protocol.html"
+         class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+        <i class="fa-solid fa-list-check text-indigo-300"></i>
+        View Action Protocol
+        <i class="fa-solid fa-arrow-right text-indigo-300 text-xs"></i>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-6xl mx-auto w-full px-6 py-10" id="mainContent">
+
+    <div id="noDataMessage" class="hidden text-center py-24">
+      <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+        <i class="fa-solid fa-circle-exclamation text-slate-400 text-2xl"></i>
+      </div>
+      <h2 class="text-xl font-semibold text-slate-700 mb-2">No analysis data found</h2>
+      <p class="text-slate-400 mb-8">Please complete the intake form to generate your clinical report.</p>
+      <a href="index.html" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors">
+        Return to Intake
+      </a>
+    </div>
+
+    <div id="reportContent" class="hidden fade-in">
+
+      <div class="mb-10">
+        <div class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 text-xs font-semibold px-3 py-1 rounded-full mb-4 border border-indigo-100">
+          <i class="fa-solid fa-microscope text-indigo-400"></i>
+          Full Biomarker Audit
+        </div>
+        <h1 class="text-3xl font-bold text-slate-900 mb-2">Clinical Analysis Report</h1>
+        <p class="text-slate-500">Deterministic mapping against athletic & clinical reference ranges</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10 items-start">
+        <div class="bg-white rounded-[1.5rem] border border-slate-100 shadow-card p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-vials text-indigo-500"></i>
+            </div>
+            <span class="text-sm text-slate-500 font-medium">Total Analyzed</span>
+          </div>
+          <p class="text-4xl font-bold text-slate-900" id="totalCount">0</p>
+          <p class="text-xs text-slate-400 mt-1">biomarkers processed</p>
+        </div>
+        <div class="bg-white rounded-[1.5rem] border border-rose-100 shadow-card p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
+            </div>
+            <span class="text-sm text-slate-500 font-medium">Critical Flags</span>
+          </div>
+          <p class="text-4xl font-bold text-rose-600" id="criticalCount">0</p>
+          <p class="text-xs text-slate-400 mt-1">require immediate attention</p>
+        </div>
+        <div class="bg-white rounded-[1.5rem] border border-amber-100 shadow-card p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-chart-bar text-amber-500"></i>
+            </div>
+            <span class="text-sm text-slate-500 font-medium">Sub-Optimal</span>
+          </div>
+          <p class="text-4xl font-bold text-amber-600" id="subOptimalCount">0</p>
+          <p class="text-xs text-slate-400 mt-1">within correctable range</p>
+        </div>
+      </div>
+      
+      <div id="referralBanner" class="hidden bg-rose-50 border border-rose-200 rounded-[1.5rem] p-6 mb-8">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="fa-solid fa-user-doctor text-rose-600"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-rose-800 mb-1">Physician Evaluation Required</p>
+            <div id="referralMessages" class="text-rose-700 text-sm space-y-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mb-6 p-1 bg-white border border-slate-100 rounded-2xl shadow-soft w-fit">
+        <button onclick="switchTab('action')" id="tab-action"
+          class="tab-active px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200">
+          <i class="fa-solid fa-circle-exclamation mr-2"></i>Action Required
+        </button>
+        <button onclick="switchTab('optimal')" id="tab-optimal"
+          class="tab-inactive px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200">
+          <i class="fa-solid fa-circle-check mr-2"></i>Optimal Ranges
+        </button>
+      </div>
+
+      <div id="panel-action">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start" id="actionCards"></div>
+        <div id="noActionMsg" class="hidden text-center py-12 text-slate-400">
+          <i class="fa-solid fa-circle-check text-green-400 text-3xl mb-3"></i>
+          <p class="font-medium">All monitored markers are within optimal range.</p>
+        </div>
+      </div>
+
+      <div id="panel-optimal" class="panel-hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start" id="optimalCards"></div>
+        <div id="noOptimalMsg" class="hidden text-center py-12 text-slate-400">
+          <p class="font-medium">No markers in optimal range.</p>
+        </div>
+      </div>
+
+      <div class="mt-8 mb-4">
+        <div class="bg-white rounded-[1.5rem] border border-slate-100 shadow-card p-8 flex flex-col md:flex-row items-center justify-between gap-10">
+          
+          <div class="flex-1 w-full max-w-lg">
+            <div class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 text-xs uppercase tracking-wider font-bold px-3 py-1 rounded-full mb-4 border border-indigo-100">
+              <i class="fa-solid fa-radar text-indigo-400"></i>
+              Systemic Overview
+            </div>
+            <h2 class="text-2xl font-bold text-slate-900 mb-3">Biological Performance Matrix</h2>
+            <p class="text-slate-500 text-sm leading-relaxed mb-6">
+              This radar maps your holistic health across five key systemic pillars. It compares your current metabolic profile against the ideal "Optimized Athlete" baseline.
+            </p>
+            
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-4 h-4 rounded-full bg-[#818cf8] shadow-sm"></div>
+                <span class="text-sm font-semibold text-slate-700">Your Current Profile</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-4 h-4 rounded-full border-2 border-[#34d399] border-dashed bg-[#ecfdf5]"></div>
+                <span class="text-sm font-semibold text-slate-700">Optimized Athlete (Target)</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="flex-1 w-full flex justify-center items-center min-h-[300px]">
+            <div class="w-full max-w-[24rem] relative aspect-square">
+              <canvas id="systemRadarChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+      </div>
+  </main>
+
+  <footer class="mt-auto py-12 text-center">
+    <div class="max-w-2xl mx-auto px-6">
+      <i class="fa-solid fa-triangle-exclamation text-amber-400 mb-3 text-lg"></i>
+      <p class="text-slate-400 text-xs leading-relaxed">
+        <strong class="text-slate-500">Medical Disclaimer:</strong> BioAudit is not a diagnostic tool and does not constitute medical advice. All outputs are algorithmic estimations based on published reference ranges. Consult a licensed physician before modifying any supplementation or treatment protocol.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    const STATUS_META = {
+      CRITICAL:      { label: "Critical",     bg: "bg-rose-100",   text: "text-rose-700",   border: "border-rose-200",  dot: "bg-rose-500"   },
+      HIGH_CLINICAL: { label: "High",          bg: "bg-rose-50",    text: "text-rose-700",   border: "border-rose-100",  dot: "bg-rose-400"   },
+      HIGH_ATHLETIC: { label: "Elevated",      bg: "bg-amber-50",   text: "text-amber-700",  border: "border-amber-100", dot: "bg-amber-400"  },
+      LOW_CLINICAL:  { label: "Low",           bg: "bg-amber-50",   text: "text-amber-700",  border: "border-amber-100", dot: "bg-amber-400"  },
+      LOW_ATHLETIC:  { label: "Sub-Optimal",   bg: "bg-amber-50",   text: "text-amber-700",  border: "border-amber-100", dot: "bg-amber-400"  },
+      OPTIMAL:       { label: "Optimal",       bg: "bg-emerald-50", text: "text-emerald-700",border: "border-emerald-100",dot: "bg-emerald-400"},
+    };
+
+    function switchTab(tab) {
+      ['action','optimal'].forEach(t => {
+        const panel = document.getElementById(`panel-${t}`);
+        const button = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          panel.classList.remove('panel-hidden');
+          button.classList.remove('tab-inactive');
+          button.classList.add('tab-active');
+        } else {
+          panel.classList.add('panel-hidden');
+          button.classList.remove('tab-active');
+          button.classList.add('tab-inactive');
+        }
+      });
+    }
+
+    function makeRangeBar(value, min, max) {
+      const clamped = Math.max(min, Math.min(max, value));
+      const pct = ((clamped - min) / (max - min)) * 100;
+      const isOut = value < min || value > max;
+      const color = isOut ? 'bg-rose-400' : 'bg-indigo-500';
+      return `
+        <div class="status-bar mt-2">
+          <div class="status-fill ${color}" style="width:${Math.min(100, pct)}%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-slate-400 mt-1">
+          <span>${min}</span><span>${max}</span>
+        </div>
+      `;
+    }
+
+    function makeActionCard(bm) {
+      const meta = STATUS_META[bm.status] || STATUS_META.OPTIMAL;
+      const actionsHtml = bm.supplement_actions.length > 0
+        ? bm.supplement_actions.map(a => `
+          <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 mt-3">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-slate-600">${a.supplement}</span>
+              <span class="text-xs font-bold ${
+                a.action_type === 'ELIMINATE' ? 'text-rose-600' :
+                a.action_type === 'PHYSICIAN' ? 'text-amber-700' :
+                a.action_type === 'INCREASE' ? 'text-indigo-600' : 'text-amber-700'
+              }">${a.action_type}</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-2">${a.warning_text || ''}</p>
+            <div class="bg-white rounded-lg px-3 py-2 border border-slate-100">
+              <span class="text-xs text-slate-400">Engine Output:</span>
+              <p class="text-sm font-semibold text-slate-800 mt-0.5">${a.output}</p>
+            </div>
+          </div>
+        `).join('')
+        : '<p class="text-xs text-slate-400 mt-2 italic">No selected supplements interact with this marker.</p>';
+
+      return `
+        <div class="bg-white rounded-[1.5rem] border ${meta.border} shadow-card p-6">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-2 h-2 rounded-full ${meta.dot}"></div>
+                <span class="text-xs font-semibold ${meta.text} ${meta.bg} px-2 py-0.5 rounded-full">${meta.label}</span>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900">${bm.marker}</h3>
+            </div>
+            <div class="text-right">
+              <p class="text-2xl font-bold text-slate-900">${bm.value}</p>
+              <p class="text-xs text-slate-400">${bm.unit}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-slate-50 rounded-xl p-3">
+              <p class="text-xs text-slate-400 mb-1">Athletic Range</p>
+              <p class="text-sm font-semibold text-slate-700">${bm.athletic_min} – ${bm.athletic_max} <span class="font-normal text-slate-400 text-xs">${bm.unit}</span></p>
+              ${makeRangeBar(bm.value, bm.athletic_min, bm.athletic_max)}
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3">
+              <p class="text-xs text-slate-400 mb-1">Clinical Range</p>
+              <p class="text-sm font-semibold text-slate-700">${bm.clinical_min} – ${bm.clinical_max} <span class="font-normal text-slate-400 text-xs">${bm.unit}</span></p>
+              ${makeRangeBar(bm.value, bm.clinical_min, bm.clinical_max)}
+            </div>
+          </div>
+          <div class="border-t border-slate-50 pt-4">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Supplement Actions</p>
+            ${actionsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    function makeOptimalCard(bm) {
+      return `
+        <div class="bg-white rounded-[1.5rem] border border-emerald-100 shadow-card p-6">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Optimal</span>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900">${bm.marker}</h3>
+            </div>
+            <div class="text-right">
+              <p class="text-2xl font-bold text-slate-900">${bm.value}</p>
+              <p class="text-xs text-slate-400">${bm.unit}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-emerald-50 rounded-xl p-3">
+              <p class="text-xs text-emerald-600 mb-1">Athletic Range</p>
+              <p class="text-sm font-semibold text-slate-700">${bm.athletic_min} – ${bm.athletic_max} <span class="font-normal text-slate-400 text-xs">${bm.unit}</span></p>
+              ${makeRangeBar(bm.value, bm.athletic_min, bm.athletic_max)}
+            </div>
+            <div class="bg-emerald-50 rounded-xl p-3">
+              <p class="text-xs text-emerald-600 mb-1">Clinical Range</p>
+              <p class="text-sm font-semibold text-slate-700">${bm.clinical_min} – ${bm.clinical_max} <span class="font-normal text-slate-400 text-xs">${bm.unit}</span></p>
+              ${makeRangeBar(bm.value, bm.clinical_min, bm.clinical_max)}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const raw = localStorage.getItem('bioaudit_results');
+      if (!raw) {
+        document.getElementById('noDataMessage').classList.remove('hidden');
+        return;
+      }
+
+      const data = JSON.parse(raw);
+      const audit = data.audit;
+
+      
+      const categories = {
+        'Oxygen Delivery': ['Hemoglobin', 'Ferritin', 'B12'],
+        'Renal Function': ['Creatinine', 'eGFR'],
+        'Immunity': ['Vitamin D', 'Zinc'],
+        'Inflammation': ['hs-CRP'],
+        'Neuromuscular': ['Magnesium', 'ALT']
+      };
+
+      const categoryScores = [];
+
+      Object.keys(categories).forEach(cat => {
+        const markersInCat = categories[cat];
+        let totalScore = 0;
+        let count = 0;
+
+        markersInCat.forEach(markerName => {
+          const bm = audit.biomarker_analysis.find(m => m.marker === markerName);
+          if (bm) {
+            let score = 100;
+            if (bm.tier === 1) score -= 15;
+            if (bm.tier === 2) score -= 35;
+            if (bm.tier === 3) score -= 60;
+            
+            totalScore += score;
+            count++;
+          }
+        });
+
+        categoryScores.push(count > 0 ? Math.round(totalScore / count) : 0);
+      });
+
+      const ctx = document.getElementById('systemRadarChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: Object.keys(categories),
+          datasets: [
+            {
+              label: 'Your Current Profile',
+              data: categoryScores,
+              backgroundColor: 'rgba(99, 102, 241, 0.4)', 
+              borderColor: 'rgba(99, 102, 241, 1)', 
+              pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+              pointBorderColor: '#fff',
+              pointHoverBackgroundColor: '#fff',
+              pointHoverBorderColor: 'rgba(99, 102, 241, 1)',
+              borderWidth: 2,
+            },
+            {
+              label: 'Optimized Athlete',
+              data: [100, 100, 100, 100, 100], 
+              backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+              borderColor: 'rgba(16, 185, 129, 0.8)', 
+              borderDash: [5, 5], 
+              pointRadius: 0, 
+              borderWidth: 2,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: 24
+          },
+          plugins: {
+            legend: { display: false }, 
+            tooltip: {
+              backgroundColor: 'rgba(15, 23, 42, 0.9)',
+              titleFont: { family: 'Inter', size: 13 },
+              bodyFont: { family: 'Inter', size: 13 },
+              padding: 10,
+              callbacks: {
+                label: function(context) {
+                  return `Score: ${context.raw}/100`;
+                }
+              }
+            }
+          },
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              ticks: { stepSize: 25, display: false }, 
+              grid: { color: '#f1f5f9' }, 
+              angleLines: { color: '#e2e8f0' },
+              pointLabels: {
+                font: { family: 'Inter', size: 12, weight: '500' }, 
+                color: '#64748b'
+              }
+            }
+          }
+        }
+      });
+      document.getElementById('reportContent').classList.remove('hidden');
+
+      
+      document.getElementById('totalCount').textContent = audit.summary.total_analyzed;
+      document.getElementById('criticalCount').textContent = audit.summary.critical;
+      document.getElementById('subOptimalCount').textContent = audit.summary.sub_optimal;
+
+      if (audit.physician_referrals && audit.physician_referrals.length > 0) {
+        document.getElementById('referralBanner').classList.remove('hidden');
+        const msgDiv = document.getElementById('referralMessages');
+        audit.physician_referrals.forEach(r => {
+          const p = document.createElement('p');
+          p.textContent = r.message;
+          msgDiv.appendChild(p);
+        });
+      }
+
+      const actionContainer = document.getElementById('actionCards');
+      const optimalContainer = document.getElementById('optimalCards');
+      let actionCount = 0, optimalCount = 0;
+
+      audit.biomarker_analysis.forEach(bm => {
+        if (bm.status === 'OPTIMAL') {
+          optimalContainer.innerHTML += makeOptimalCard(bm);
+          optimalCount++;
+        } else {
+          actionContainer.innerHTML += makeActionCard(bm);
+          actionCount++;
+        }
+      });
+
+      if (actionCount === 0) document.getElementById('noActionMsg').classList.remove('hidden');
+      if (optimalCount === 0) document.getElementById('noOptimalMsg').classList.remove('hidden');
+    });
+  </script>
+</body>
+</html>
